@@ -6,7 +6,7 @@
   <link href="https://zhaokunlong.github.io/atom.xml" rel="self"/>
   
   <link href="https://zhaokunlong.github.io/"/>
-  <updated>2021-09-07T10:02:31.024Z</updated>
+  <updated>2026-06-25T09:29:15.013Z</updated>
   <id>https://zhaokunlong.github.io/</id>
   
   <author>
@@ -17,11 +17,86 @@
   <generator uri="https://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>Hello World</title>
+    <link href="https://zhaokunlong.github.io/2026/06/25/hello-world/"/>
+    <id>https://zhaokunlong.github.io/2026/06/25/hello-world/</id>
+    <published>2026-06-25T09:29:15.013Z</published>
+    <updated>2026-06-25T09:29:15.013Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;p&gt;Welcome to &lt;a href=&quot;https://hexo.io/&quot;&gt;Hexo&lt;/a&gt;! This is your very first post. Check &lt;a href=&quot;https://hexo.io/docs/&quot;&gt;documentation&lt;/a&gt;</summary>
+        
+      
+    
+    
+    
+    
+    <category term="aa" scheme="https://zhaokunlong.github.io/tags/aa/"/>
+    
+    <category term="bb" scheme="https://zhaokunlong.github.io/tags/bb/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>解决长期分支历史分叉导致的 GitHub PR 噪音问题</title>
+    <link href="https://zhaokunlong.github.io/2026/06/25/fix-git-divergent-branches-pr-noise/"/>
+    <id>https://zhaokunlong.github.io/2026/06/25/fix-git-divergent-branches-pr-noise/</id>
+    <published>2026-06-25T09:00:00.000Z</published>
+    <updated>2026-06-25T09:29:15.013Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h2 id=&quot;1-典型案例背景-Case-Study&quot;&gt;&lt;a href=&quot;#1-典型案例背景-Case-Study&quot; class=&quot;headerlink&quot; title=&quot;1. 典型案例背景 (Case Study)&quot;&gt;&lt;/a&gt;1. 典型案例背景 (Case</summary>
+        
+      
+    
+    
+    
+    <category term="技术" scheme="https://zhaokunlong.github.io/categories/%E6%8A%80%E6%9C%AF/"/>
+    
+    
+    <category term="Git" scheme="https://zhaokunlong.github.io/tags/Git/"/>
+    
+    <category term="GitHub" scheme="https://zhaokunlong.github.io/tags/GitHub/"/>
+    
+    <category term="DevOps" scheme="https://zhaokunlong.github.io/tags/DevOps/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>send-email-with-calendar-links</title>
+    <link href="https://zhaokunlong.github.io/2021/09/08/send-email-with-calendar-links/"/>
+    <id>https://zhaokunlong.github.io/2021/09/08/send-email-with-calendar-links/</id>
+    <published>2021-09-08T10:29:33.000Z</published>
+    <updated>2026-06-25T09:29:15.013Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h2 id=&quot;Take-the-note-when-sending-an-email-with-a-calendar-link&quot;&gt;&lt;a href=&quot;#Take-the-note-when-sending-an-email-with-a-calendar-link&quot;</summary>
+        
+      
+    
+    
+    
+    
+  </entry>
+  
+  <entry>
     <title>setup-sentry-with-nestjs</title>
     <link href="https://zhaokunlong.github.io/2021/09/07/setup-sentry-with-nestjs/"/>
     <id>https://zhaokunlong.github.io/2021/09/07/setup-sentry-with-nestjs/</id>
     <published>2021-09-07T10:15:08.000Z</published>
-    <updated>2021-09-07T10:02:31.024Z</updated>
+    <updated>2026-06-25T09:29:15.013Z</updated>
     
     
       
@@ -40,27 +115,24 @@
   </entry>
   
   <entry>
-    <title>Hello World</title>
-    <link href="https://zhaokunlong.github.io/2021/09/07/hello-world/"/>
-    <id>https://zhaokunlong.github.io/2021/09/07/hello-world/</id>
-    <published>2021-09-07T10:02:31.024Z</published>
-    <updated>2021-09-07T10:02:31.024Z</updated>
+    <title>curl-samples</title>
+    <link href="https://zhaokunlong.github.io/2021/08/30/curl-samples/"/>
+    <id>https://zhaokunlong.github.io/2021/08/30/curl-samples/</id>
+    <published>2021-08-30T03:54:07.000Z</published>
+    <updated>2026-06-25T09:29:15.013Z</updated>
     
     
       
       
         
         
-    <summary type="html">&lt;p&gt;Welcome to &lt;a href=&quot;https://hexo.io/&quot;&gt;Hexo&lt;/a&gt;! This is your very first post. Check &lt;a href=&quot;https://hexo.io/docs/&quot;&gt;documentation&lt;/a&gt;</summary>
+    <summary type="html">&lt;h4 id=&quot;通用参数&quot;&gt;&lt;a href=&quot;#通用参数&quot; class=&quot;headerlink&quot; title=&quot;通用参数&quot;&gt;&lt;/a&gt;通用参数&lt;/h4&gt;&lt;hr&gt;
+&lt;p&gt;-#, –progress-bar Make curl display a simple progress</summary>
         
       
     
     
     
-    
-    <category term="aa" scheme="https://zhaokunlong.github.io/tags/aa/"/>
-    
-    <category term="bb" scheme="https://zhaokunlong.github.io/tags/bb/"/>
     
   </entry>
   
