@@ -6,7 +6,7 @@
 
 ## 环境要求
 
-- [Node.js](https://nodejs.org/) >= 12
+- [Node.js](https://nodejs.org/) >= 18（推荐 20）
 - [Git](https://git-scm.com/)
 
 ## 快速开始
@@ -73,34 +73,40 @@ hexo publish "文章标题"
 
 | 命令 | 说明 |
 |------|------|
-| `npm run server` | 启动本地预览服务器 |
+| `npm run server` | 启动本地预览服务器（http://localhost:4000） |
 | `npm run build` | 生成静态文件到 `public/` |
 | `npm run clean` | 清除缓存和生成的文件 |
-| `npm run deploy` | 部署到 GitHub Pages |
+| `npm run deploy` | 本地推送到 gh-pages（一般不用，CI 会做） |
 
-或使用 npx 直接调用：
+或使用 npx：
 
 ```bash
 npx hexo server       # 本地预览
 npx hexo generate     # 生成静态文件
 npx hexo clean        # 清理
-npx hexo deploy       # 部署
+npx hexo new "标题"   # 创建新文章
 ```
 
 ## 发布流程
 
-```bash
-# 1. 清理旧的生成文件
-npm run clean
+本项目**通过 GitHub Actions 自动部署**。当你把代码 `push` 到 `master` 分支，CI 会自动执行 `clean → generate → deploy`，将 `public/` 目录发布到 `gh-pages` 分支。
 
-# 2. 生成静态文件
+**首次部署需要配置**：仓库 Settings → Pages → Branch 选 `gh-pages` / `/ (root)`。
+
+**Workflow 文件**：`.github/workflows/deploy.yml`（使用 `peaceiris/actions-gh-pages@v4`）。
+
+### 本地调试
+
+```bash
+# 仅本地生成静态文件（用于预览）
+npm run clean
 npm run build
 
-# 3. 部署到 GitHub Pages
-npm run deploy
+# 本地预览服务器
+npm run server
 ```
 
-部署目标：`git@github.com:ZhaoKunLong/ZhaoKunLong.github.io.git` 的 `master` 分支。
+> 注：`npm run deploy` 也可以本地执行推送（依赖 `hexo-deployer-git`），但通常**不需要**——直接 push 触发 CI 即可。
 
 ## 目录结构
 
