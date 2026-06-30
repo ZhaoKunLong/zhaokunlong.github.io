@@ -1,0 +1,122 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>【生产环境】Ubuntu LVM 根分区扩容操作指南 | 小满</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/normalize.css/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/purecss/build/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><link rel="alternate" type="application/atom+xml" href="/atom.xml"><script type="text/javascript" src="//cdn.jsdelivr.net/npm/clipboard/dist/clipboard.min.js"></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.js"></script><link rel="stylesheet" href="//cdn.jsdelivr.net/gh/codeseven/toastr/build/toastr.min.css"><meta name="generator" content="Hexo 6.3.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">【生产环境】Ubuntu LVM 根分区扩容操作指南</h1><a id="logo" href="/.">小满</a><p class="description">春粒渐满，夏果新熟·</p></div><div id="nav-menu"><a class="current" href="/."><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/tags/"><i class="fa fa-solid fa-tags"> 标签</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">【生产环境】Ubuntu LVM 根分区扩容操作指南</h1><div class="post-meta">2026-06-30<span> | </span><span class="category"><a href="/categories/%E8%BF%90%E7%BB%B4/">运维</a></span></div><div class="post-content"><h1 id="【生产环境】Ubuntu-LVM-根分区扩容操作指南"><a href="#【生产环境】Ubuntu-LVM-根分区扩容操作指南" class="headerlink" title="【生产环境】Ubuntu LVM 根分区扩容操作指南"></a>【生产环境】Ubuntu LVM 根分区扩容操作指南</h1><p><strong>目标</strong>：&#x2F;home 缩减至 500G，&#x2F; 根分区扩容至 1.2T<br><strong>适用系统</strong>：Ubuntu + LVM + ext4<br><strong>停机时间</strong>：约 15~30 分钟<br><strong>风险等级</strong>：低（&#x2F;home 仅使用 4.7G，数据量极小）</p>
+<h2 id="⚠️-执行前必读（非常重要）"><a href="#⚠️-执行前必读（非常重要）" class="headerlink" title="⚠️ 执行前必读（非常重要）"></a>⚠️ 执行前必读（非常重要）</h2><ol>
+<li>本次操作仅涉及文件系统大小调整，不删除业务数据。</li>
+<li>PG&#x2F;Redis 数据卷位于根分区，缩小 &#x2F;home 对其零影响。</li>
+<li>操作需要 umount &#x2F;home，期间 &#x2F;home 不可用，请务必安排停机窗口。</li>
+<li>建议先执行一次 PG 全量备份（命令已包含在步骤中）。</li>
+</ol>
+<h2 id="一、前置确认（现在就执行，把结果截屏-保存）"><a href="#一、前置确认（现在就执行，把结果截屏-保存）" class="headerlink" title="一、前置确认（现在就执行，把结果截屏&#x2F;保存）"></a>一、前置确认（现在就执行，把结果截屏&#x2F;保存）</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 确认 VG/LV 结构</span></span><br><span class="line">lsblk</span><br><span class="line">lvdisplay</span><br><span class="line"><span class="built_in">df</span> -h / /home</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 确认 /home 实际用量</span></span><br><span class="line"><span class="built_in">du</span> -sh /home</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 确认 PG 容器名</span></span><br><span class="line">docker ps | grep postgres</span><br></pre></td></tr></table></figure>
+
+<p>你应该看到的关键信息：</p>
+<ul>
+<li>&#x2F;home 对应 LV 名称（通常是 <code>/dev/ubuntu-vg/lv-0</code> 或类似）</li>
+<li>&#x2F;home 使用率极低（约 4~5G）</li>
+<li>根 LV 名称是 <code>/dev/ubuntu-vg/ubuntu-lv</code></li>
+</ul>
+<p>下面指南中，统一用以下占位符，执行时请替换为你的真实值：</p>
+<ul>
+<li><code>HOME_LV = /dev/ubuntu-vg/lv-0</code></li>
+<li><code>ROOT_LV = /dev/ubuntu-vg/ubuntu-lv</code></li>
+</ul>
+<h2 id="二、停机-备份（安全第一）"><a href="#二、停机-备份（安全第一）" class="headerlink" title="二、停机 &amp; 备份（安全第一）"></a>二、停机 &amp; 备份（安全第一）</h2><h3 id="1️⃣-停止所有-Docker-服务"><a href="#1️⃣-停止所有-Docker-服务" class="headerlink" title="1️⃣ 停止所有 Docker 服务"></a>1️⃣ 停止所有 Docker 服务</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /home/disco-devops/local-setup-db</span><br><span class="line">docker compose down</span><br></pre></td></tr></table></figure>
+
+<h3 id="2️⃣-确认所有容器已停止"><a href="#2️⃣-确认所有容器已停止" class="headerlink" title="2️⃣ 确认所有容器已停止"></a>2️⃣ 确认所有容器已停止</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker ps</span><br><span class="line"><span class="comment"># 应为空</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3️⃣-PG-数据备份（可选但强烈建议）"><a href="#3️⃣-PG-数据备份（可选但强烈建议）" class="headerlink" title="3️⃣ PG 数据备份（可选但强烈建议）"></a>3️⃣ PG 数据备份（可选但强烈建议）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">PG_CONTAINER=$(docker ps -a | grep postgres | awk <span class="string">&#x27;&#123;print $1&#125;&#x27;</span>)</span><br><span class="line">docker start <span class="variable">$PG_CONTAINER</span></span><br><span class="line"><span class="built_in">sleep</span> 5</span><br><span class="line">docker <span class="built_in">exec</span> -it <span class="variable">$PG_CONTAINER</span> pg_dumpall -U postgres &gt; /root/pg_backup_$(<span class="built_in">date</span> +%F).sql</span><br><span class="line">docker stop <span class="variable">$PG_CONTAINER</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="三、卸载-home（关键步骤）"><a href="#三、卸载-home（关键步骤）" class="headerlink" title="三、卸载 &#x2F;home（关键步骤）"></a>三、卸载 &#x2F;home（关键步骤）</h2><h3 id="1️⃣-确保-home-没有被占用"><a href="#1️⃣-确保-home-没有被占用" class="headerlink" title="1️⃣ 确保 &#x2F;home 没有被占用"></a>1️⃣ 确保 &#x2F;home 没有被占用</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">lsof +D /home</span><br><span class="line"><span class="comment"># 如果有输出，kill 对应进程</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2️⃣-卸载-home"><a href="#2️⃣-卸载-home" class="headerlink" title="2️⃣ 卸载 &#x2F;home"></a>2️⃣ 卸载 &#x2F;home</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">umount /home</span><br></pre></td></tr></table></figure>
+
+<p>✅ 如果失败，说明仍有进程占用，用：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">fuser -km /home</span><br><span class="line">umount /home</span><br></pre></td></tr></table></figure>
+
+<h2 id="四、缩小-home-文件系统-LV"><a href="#四、缩小-home-文件系统-LV" class="headerlink" title="四、缩小 &#x2F;home 文件系统 &amp; LV"></a>四、缩小 &#x2F;home 文件系统 &amp; LV</h2><h3 id="1️⃣-强制检查文件系统（ext4-必须）"><a href="#1️⃣-强制检查文件系统（ext4-必须）" class="headerlink" title="1️⃣ 强制检查文件系统（ext4 必须）"></a>1️⃣ 强制检查文件系统（ext4 必须）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">e2fsck -f HOME_LV</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这一步 <strong>不可跳过</strong>，否则数据可能损坏</p>
+</blockquote>
+<h3 id="2️⃣-缩小文件系统到-480G（留一点余量）"><a href="#2️⃣-缩小文件系统到-480G（留一点余量）" class="headerlink" title="2️⃣ 缩小文件系统到 480G（留一点余量）"></a>2️⃣ 缩小文件系统到 480G（留一点余量）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">resize2fs HOME_LV 480G</span><br></pre></td></tr></table></figure>
+
+<h3 id="3️⃣-缩小-LV-到-500G"><a href="#3️⃣-缩小-LV-到-500G" class="headerlink" title="3️⃣ 缩小 LV 到 500G"></a>3️⃣ 缩小 LV 到 500G</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lvreduce -L 500G HOME_LV</span><br></pre></td></tr></table></figure>
+
+<p>✅ 系统会提示确认，输入 <code>y</code></p>
+<h2 id="五、重新挂载-home-并验证"><a href="#五、重新挂载-home-并验证" class="headerlink" title="五、重新挂载 &#x2F;home 并验证"></a>五、重新挂载 &#x2F;home 并验证</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mount /home</span><br><span class="line"><span class="built_in">df</span> -h /home</span><br></pre></td></tr></table></figure>
+
+<p>✅ 应显示 &#x2F;home 约为 500G，且数据完整</p>
+<h2 id="六、扩容根分区（核心目标）"><a href="#六、扩容根分区（核心目标）" class="headerlink" title="六、扩容根分区（核心目标）"></a>六、扩容根分区（核心目标）</h2><h3 id="1️⃣-查看-VG-剩余空间"><a href="#1️⃣-查看-VG-剩余空间" class="headerlink" title="1️⃣ 查看 VG 剩余空间"></a>1️⃣ 查看 VG 剩余空间</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vgs</span><br></pre></td></tr></table></figure>
+
+<p>✅ 此时 VFree 应显示约 1.3T+</p>
+<h3 id="2️⃣-扩容根-LV-到-1-2T"><a href="#2️⃣-扩容根-LV-到-1-2T" class="headerlink" title="2️⃣ 扩容根 LV 到 1.2T"></a>2️⃣ 扩容根 LV 到 1.2T</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lvextend -L 1.2T ROOT_LV</span><br></pre></td></tr></table></figure>
+
+<h3 id="3️⃣-在线扩容根文件系统（ext4-支持）"><a href="#3️⃣-在线扩容根文件系统（ext4-支持）" class="headerlink" title="3️⃣ 在线扩容根文件系统（ext4 支持）"></a>3️⃣ 在线扩容根文件系统（ext4 支持）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">resize2fs ROOT_LV</span><br></pre></td></tr></table></figure>
+
+<p>✅ 这一步 <strong>不需要卸载根分区</strong>，非常安全</p>
+<h2 id="七、验证最终结果"><a href="#七、验证最终结果" class="headerlink" title="七、验证最终结果"></a>七、验证最终结果</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">df</span> -h /</span><br><span class="line"><span class="built_in">df</span> -h /home</span><br><span class="line">vgs</span><br><span class="line">lvs</span><br></pre></td></tr></table></figure>
+
+<p>期望结果：</p>
+<table>
+<thead>
+<tr>
+<th>分区</th>
+<th>大小</th>
+<th>使用率</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>&#x2F;</td>
+<td>~1.2T</td>
+<td>~3%</td>
+</tr>
+<tr>
+<td>&#x2F;home</td>
+<td>~500G</td>
+<td>&lt;1%</td>
+</tr>
+<tr>
+<td>VFree</td>
+<td>≈ 100G+</td>
+<td>预留缓冲</td>
+</tr>
+</tbody></table>
+<h2 id="八、恢复业务"><a href="#八、恢复业务" class="headerlink" title="八、恢复业务"></a>八、恢复业务</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /home/disco-devops/local-setup-db</span><br><span class="line">docker compose up -d</span><br><span class="line">docker ps</span><br><span class="line">docker logs postgres</span><br></pre></td></tr></table></figure>
+
+<p>✅ 确认 PG &#x2F; Redis &#x2F; Mosquitto 均正常运行</p>
+<h2 id="九、设置开机自动挂载（确认）"><a href="#九、设置开机自动挂载（确认）" class="headerlink" title="九、设置开机自动挂载（确认）"></a>九、设置开机自动挂载（确认）</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cat</span> /etc/fstab</span><br></pre></td></tr></table></figure>
+
+<p>应仍包含 &#x2F;home 的挂载项（UUID 或 &#x2F;dev&#x2F;mapper 路径），无需修改。</p>
+<h2 id="十、回滚方案（以防万一）"><a href="#十、回滚方案（以防万一）" class="headerlink" title="十、回滚方案（以防万一）"></a>十、回滚方案（以防万一）</h2><h3 id="若根扩容失败"><a href="#若根扩容失败" class="headerlink" title="若根扩容失败"></a>若根扩容失败</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">lvextend -L +100G ROOT_LV</span><br><span class="line">resize2fs ROOT_LV</span><br></pre></td></tr></table></figure>
+
+<h3 id="若-home-无法挂载"><a href="#若-home-无法挂载" class="headerlink" title="若 &#x2F;home 无法挂载"></a>若 &#x2F;home 无法挂载</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mount HOME_LV /home</span><br><span class="line"><span class="comment"># 或恢复到原大小</span></span><br><span class="line">lvresize -L 1.7T HOME_LV</span><br><span class="line">resize2fs HOME_LV</span><br></pre></td></tr></table></figure>
+
+<h2 id="十一、后续建议（避免再踩坑）"><a href="#十一、后续建议（避免再踩坑）" class="headerlink" title="十一、后续建议（避免再踩坑）"></a>十一、后续建议（避免再踩坑）</h2><ol>
+<li><p>根分区 1.2T 足够 PG 长期增长</p>
+</li>
+<li><p>定期清理无用镜像：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker image prune</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>监控磁盘：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">df</span> -h / /home</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>不要再把业务数据放到根分区</p>
+</li>
+<li><p>可考虑将 PG 数据目录显式挂载到 <code>/home/pgdata</code>（长期优化）</p>
+</li>
+</ol>
+<h2 id="✅-执行清单（Checklist）"><a href="#✅-执行清单（Checklist）" class="headerlink" title="✅ 执行清单（Checklist）"></a>✅ 执行清单（Checklist）</h2><ul>
+<li><input disabled="" type="checkbox"> 已安排停机窗口</li>
+<li><input disabled="" type="checkbox"> 已备份 PG 数据</li>
+<li><input disabled="" type="checkbox"> 已确认 LV 名称</li>
+<li><input disabled="" type="checkbox"> 已停止 Docker</li>
+<li><input disabled="" type="checkbox"> 已卸载 &#x2F;home</li>
+<li><input disabled="" type="checkbox"> 已执行 e2fsck</li>
+<li><input disabled="" type="checkbox"> 已缩小 &#x2F;home</li>
+<li><input disabled="" type="checkbox"> 已扩容根分区</li>
+<li><input disabled="" type="checkbox"> 业务已恢复</li>
+</ul>
+<blockquote>
+<p>如果你愿意，在执行前可以把下面三条命令的输出贴出来，我帮你二次确认 LV 名称和大小，确保万无一失：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">lsblk</span><br><span class="line">lvdisplay</span><br><span class="line"><span class="built_in">df</span> -h / /home</span><br></pre></td></tr></table></figure>
+</blockquote>
+<p>你可以把这页文档当成”操作手册”，一步一步执行，有任何异常立刻停下来问我 👍</p>
+</div><div id="donate"><link rel="stylesheet" type="text/css" href="/css/donate.css"><script type="text/javascript" src="/js/donate.js" successtext="复制成功!"></script><a class="pos-f tr3" id="github" target="_blank" rel="noopener" href="https://github.com/Kaiyuan/donate-page" arget="_blank" title="Github"></a><div id="DonateText">Donate</div><ul class="list pos-f" id="donateBox"><li id="ps">没有开启任何Donate选项!</li></ul><div class="pos-f left-100" id="QRBox"><div id="MainBox"></div></div></div><div class="tags"><a href="/tags/Ubuntu/"><i class="fa fa-tag"></i>Ubuntu</a><a href="/tags/LVM/"><i class="fa fa-tag"></i>LVM</a><a href="/tags/%E7%A3%81%E7%9B%98%E6%89%A9%E5%AE%B9/"><i class="fa fa-tag"></i>磁盘扩容</a><a href="/tags/ext4/"><i class="fa fa-tag"></i>ext4</a><a href="/tags/%E8%BF%90%E7%BB%B4/"><i class="fa fa-tag"></i>运维</a></div><div class="post-nav"><a class="pre" href="/2026/06/30/hello-world/">Hello World</a><a class="next" href="/2026/06/29/rk3568-adb-debugging-and-log-tracing-guide/">RK3568 设备 ADB 调试与日志追踪手册</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><form class="search-form" action="//www.google.com/search" method="get" accept-charset="utf-8" target="_blank"><input type="text" name="q" maxlength="20" placeholder="Search"/><input type="hidden" name="sitesearch" value="https://ZhaoKunLong.github.io"/></form></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E6%8A%80%E6%9C%AF/">技术</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%BF%90%E7%BB%B4/">运维</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Git/" style="font-size: 15px;">Git</a> <a href="/tags/GitHub/" style="font-size: 15px;">GitHub</a> <a href="/tags/DevOps/" style="font-size: 15px;">DevOps</a> <a href="/tags/aa/" style="font-size: 15px;">aa</a> <a href="/tags/bb/" style="font-size: 15px;">bb</a> <a href="/tags/Android/" style="font-size: 15px;">Android</a> <a href="/tags/ADB/" style="font-size: 15px;">ADB</a> <a href="/tags/RK3568/" style="font-size: 15px;">RK3568</a> <a href="/tags/%E8%B0%83%E8%AF%95/" style="font-size: 15px;">调试</a> <a href="/tags/%E6%97%A5%E5%BF%97/" style="font-size: 15px;">日志</a> <a href="/tags/nestjs-sentry-nestjs-sentry/" style="font-size: 15px;">nestjs sentry nestjs-sentry</a> <a href="/tags/Ubuntu/" style="font-size: 15px;">Ubuntu</a> <a href="/tags/LVM/" style="font-size: 15px;">LVM</a> <a href="/tags/%E7%A3%81%E7%9B%98%E6%89%A9%E5%AE%B9/" style="font-size: 15px;">磁盘扩容</a> <a href="/tags/ext4/" style="font-size: 15px;">ext4</a> <a href="/tags/%E8%BF%90%E7%BB%B4/" style="font-size: 15px;">运维</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2026/06/30/hello-world/">Hello World</a></li><li class="post-list-item"><a class="post-list-link" href="/2026/06/30/ubuntu-lvm-root-partition-expansion-guide/">【生产环境】Ubuntu LVM 根分区扩容操作指南</a></li><li class="post-list-item"><a class="post-list-link" href="/2026/06/29/rk3568-adb-debugging-and-log-tracing-guide/">RK3568 设备 ADB 调试与日志追踪手册</a></li><li class="post-list-item"><a class="post-list-link" href="/2026/06/25/fix-git-divergent-branches-pr-noise/">解决长期分支历史分叉导致的 GitHub PR 噪音问题</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/09/08/send-email-with-calendar-links/">send-email-with-calendar-links</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/09/07/setup-sentry-with-nestjs/">setup-sentry-with-nestjs</a></li><li class="post-list-item"><a class="post-list-link" href="/2021/08/30/curl-samples/">curl-samples</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-external-link"> 友情链接</i></div><ul></ul><a href="http://www.example1.com/" title="site-name1" target="_blank">site-name1</a><ul></ul><a href="http://www.example2.com/" title="site-name2" target="_blank">site-name2</a><ul></ul><a href="http://www.example3.com/" title="site-name3" target="_blank">site-name3</a></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2026 <a href="/." rel="nofollow">小满.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a class="show" id="rocket" href="#top"></a><script type="text/javascript" src="/js/totop.js?v=1.0.0" async></script><script type="text/javascript" src="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox/dist/jquery.fancybox.min.css"><script type="text/javascript" src="/js/copycode.js" successtext="复制成功!"></script><link rel="stylesheet" type="text/css" href="/css/copycode.css"><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>
